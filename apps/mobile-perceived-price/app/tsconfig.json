@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "jsx": "react-jsx",
+    "strict": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "noEmit": true,
+    "isolatedModules": true,
+    "types": [
+      "jest",
+      "react-native"
+    ],
+    "baseUrl": "./src",
+    "paths": {
+      "@app/*": [
+        "app/*"
+      ],
+      "@features/*": [
+        "features/*"
+      ],
+      "@components/*": [
+        "components/*"
+      ],
+      "@theme/*": [
+        "app/theme/*"
+      ],
+      "@i18n/*": [
+        "i18n/*"
+      ]
+    }
+  },
+  "include": [
+    "App.tsx",
+    "src"
+  ],
+  "extends": "expo/tsconfig.base"
+}

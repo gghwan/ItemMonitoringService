@@ -1,0 +1,15 @@
+{
+  "name": "item-monitoring-service",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:mobile": "cd apps/mobile-perceived-price/app && npx expo start",
+    "lint": "echo \"add eslint later\""
+  }
+}
+
+
