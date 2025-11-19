@@ -1,4 +1,4 @@
-# Perceived Price Monitoring Service (체감 물가 모니터링 서비스)
+# 진짜 물가 (Perceived Price Monitoring Service)
 
 **단일 가구·20–30대**를 위한 생활 물가 체감 서비스입니다.  
 사용자가 검색한 품목에 대해 **실제 가격**과 **체감 기준 가격대(“기억 가격”)**를 비교하고,  

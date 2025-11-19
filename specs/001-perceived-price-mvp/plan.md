@@ -7,7 +7,7 @@
 
 ## Summary
 
-This MVP delivers a mobile **Perceived Price Monitoring Service** implemented as a React Native app for iOS and Android.  
+This MVP delivers a mobile service called **“진짜 물가”** implemented as a React Native app for iOS and Android.  
 The application lets single-person households search for items, see the gap between **regional actual prices** and their **AI-estimated perceived baseline price**, understand **why** a price feels expensive through an interpretation card, and manage a **basket** of frequently checked items.  
 The mobile client will consume one or more backend APIs that expose normalized public price data (KAMIS, CPI, etc.) and AI-derived perceived price ranges; for this plan we assume those APIs exist or are mocked, and focus on the React Native client architecture, state management, and UX flows.
 
@@ -38,22 +38,28 @@ The mobile client will consume one or more backend APIs that expose normalized p
 
 ### UI / Design System
 
-- **Mapping to Our IA**:
-  - Home screen: maps to the main “menu/home” screen in the Figma design, adapted to show **Today’s perceived index**, **basket summary cards**, and **top price-change items** instead of coffee menus.
-  - Category screen: reuses the category/list layout from the Figma design for **price categories** and representative items.
-  - Basket screen: reuses the cart/checkout list layout for our **saved items basket**, including per-item rows and summary modules.
-  - Item detail screen: follows the product detail pattern (image/graph area on top, key stats, description/notes below) adapted for **price graph + actual vs perceived price modules + interpretation card**.
-- **Implementation Approach**:
-  - Phase 1–2: Implement a **static UI shell** that closely matches the Figma visual design using mocked data and placeholder components, ensuring navigation and layout are correct.
-  - Phase 3+: Gradually replace mock data with live data and AI outputs while preserving the visual structure; final polish (animations, micro-interactions, empty states) is done after core flows are stable.
-  - Shared UI primitives (to avoid boilerplate and divergence between screens):
-    - Layout / structure: `AppCard`, `SearchBar`, (later) `ScreenContainer`, `SectionHeader`, shared list row components.
-    - Feedback: standardized loading spinners, error/empty states, and interpretation-card scroll behavior.
-    - These primitives must be used by Home, Search, Basket, Category, and Item Detail screens instead of ad-hoc styles to keep the UX consistent and spec-aligned.
+<!-- 한국어 주석: "생활물가_디자인시스템" Figma와 Kakao OROR Forge 글(https://tech.kakao.com/posts/611, 612)을 그대로 참고해 Figma-to-Code 방식으로 구현합니다. -->
+
+- **Reference Design**: Primary reference is the `생활물가_디자인시스템` Figma file, supplemented by the OROR Forge Figma-to-Code methodology from Kakao Tech Blog posts [611] and [612]. The older coffee-shop Figma는 사용하지 않습니다.
+- **Design Tokens (theme)**:
+  - Colors: `theme.colors` defines `primary`, `primarySoft`, `primaryStrong`, `background`, `surface`, `surfaceElevated`, `textPrimary`, `textSecondary`, `borderSoft`, `accentPositive`, `accentNegative`, `badgeBackground`, `badgeText`, `divider`, `warning`, `info`, mapped from the 생활물가 Figma palette.
+  - Typography: `theme.typography` defines `heading1`, `heading2`, `subtitle`, `body`, `caption` using the **Pretendard** font family and sizes/line-heights tuned for 375px mobile, mirroring the Figma text styles.
+  - Spacing: `theme.spacing` (`xs`, `sm`, `md`, `lg`, `xl`) encodes the frequently used vertical/horizontal gaps in the Figma layout so that all screens snap to the same scale.
+- **Primitive Components (Figma → Code)**:
+  - Layout: `ScreenContainer` centralizes background color, safe padding, and scroll behavior to match the base screen frame in the 디자인시스템.
+  - Cards: `AppCard` implements the common card shell (radius, border, shadow, padding) shared by modules on Home, Basket, and Item Detail.
+  - Text structure: `SectionHeader` renders section titles/subtitles using `heading2` and `caption` tokens, following the section patterns in Figma.
+  - Inputs: `SearchBar` provides the rounded search field used on Home/Search, with colors and typography wired to the theme.
+- **Screen Composition**:
+  - Each screen (Home, Search, Basket, Category, Item Detail, Expenditure) is built by composing the primitives above, avoiding ad-hoc inline styles as much as possible.
+  - Layout specs from Figma (margins, paddings, gaps) are first translated into tokens and primitive props, not copied directly into each screen, in line with the OROR Forge approach.
+- **Implementation Phases**:
+  - Phase 1–2: Build a thin **design shell** that matches the 생활물가 Figma screens using mocked data, verifying navigation, layout, and component hierarchy.
+  - Phase 3+: Wire live data (Seoul APIs + Gemini-powered endpoints) into the existing shell and polish micro-interactions (loading states, interpretation-card scroll tracking, empty states) without changing the underlying design tokens or component contracts.
 
 ### External Data & AI Integration
 
-<!-- 한국어 주석: 서울시 공공 물가 관련 API와 Gemini API 연동 방식을 명시합니다. -->
+<!-- 한국어 주석: 서울시 공공 물가 관련 API와 Gemini 2.5 Pro + RAG 연동 방식을 명시합니다. 자세한 내용은 ai-architecture.md 참조. -->
 
 - **Public Data Sources (Seoul & National)**:  
   - Seoul retail price information API (e.g., city-level price news) exposed via endpoints documented at `http://115.84.165.40/dataList/10611/S/2/datasetView.do`  
@@ -61,12 +67,20 @@ The mobile client will consume one or more backend APIs that expose normalized p
   - Seoul service usage price/fee information API documented at `http://115.84.165.40/dataList/10611/S/2/datasetView.do`  
   - National consumer price index (CPI) and related inflation indicators from e-나라지표 (`https://www.index.go.kr/unity/potal/main/EachDtlPageDetail.do?idx_cd=1060`) used as a macro benchmark for perceived vs. official inflation gaps.  
   - Additional national sources like KAMIS where applicable for item-level national averages.
-- **Backend Responsibility**: A backend (or serverless) service will periodically fetch and normalize these Seoul APIs into our internal `PriceSnapshot`, `Item`, and `Region` models, compute regional actual prices and gaps with **deterministic code**, cache results, and expose a **single mobile-facing API** that the React Native app calls.
-- **Gemini Integration**: The backend will call the Gemini API server-side using structured inputs built from our normalized data (not by letting Gemini scrape raw APIs), in order to:  
-  - refine or smooth personalized perceived baseline price ranges (for items/regions) based on deterministic features (purchase cycle, volatility, user sensitivity, regional premiums)  
-  - generate natural-language interpretation cards explaining why prices feel expensive or cheap.  
-  For policy/explanatory content such as CPI descriptions, the backend MAY augment prompts with additional context retrieved via an embeddings/RAG pipeline (e.g., over CPI documentation), but all **numerical calculations** (averages, deltas, percentages) MUST remain in our codebase.
-- **Mobile Client Role**: The React Native app only talks to our backend APIs (never directly to Gemini or the Seoul open APIs) via `priceRepository` and `perceivedPriceRepository`, minimizing API key exposure and allowing AI/data logic to evolve independently of the client.
+- **Backend Responsibility**:  
+  - `seoulPriceClient`가 서울시 물가 API를 호출해 `SeoulPriceSnapshot`을 내부 `PriceSnapshot`/`Item`/`Region` 모델로 정규화합니다.  
+  - `cpiClient`가 e-나라지표에서 CPI/생활물가지수 정보를 가져와 `CpiSnapshot`으로 변환합니다.  
+  - `/v1/perceived-prices/items/:itemCode` 엔드포인트는 위 데이터들을 바탕으로 **결정적 로직으로 실제 가격/기억 가격대/변동률**을 계산한 뒤, Gemini에 넘길 구조화 입력을 생성합니다.
+- **Gemini 2.5 Pro + RAG Integration**:  
+  - 백엔드의 `geminiClient.buildInterpretation`가 `@google/generative-ai` SDK를 사용해 **`gemini-2.5-pro`** (또는 환경변수로 지정된 모델)을 호출합니다.  
+  - 입력은 `InterpretationInput` (item, region, baseline, actualPrice, macro, locale)와 `retrieveRagContext`로 검색된 `RagDocument[]`이며, 모든 숫자 계산은 사전에 코드에서 수행합니다.  
+  - 프롬프트는 JSON 기반으로 설계되어, Gemini가 `{ "title": string, "body": string }` 형식의 JSON만 반환하도록 제한합니다. 파싱 실패 또는 응답 이상 시, 순수 함수형 Fallback 로직(`generatePerceivedInterpretationFallback`)을 사용합니다.
+- **RAG (Retrieval Augmented Generation)**:  
+  - `rag/knowledgeBase.ts`는 CPI/생활물가지수/체감 물가 심리 등 설명 텍스트를 `RagDocument`로 관리하고, 태그 기반 검색(`retrieveRagContext`)을 제공합니다.  
+  - MVP에서는 하드코딩된 문서와 키워드 필터를 사용하며, 추후 Gemini Embedding + 벡터 DB로 교체할 수 있도록 인터페이스만 고정합니다.
+- **Mobile Client Role**:  
+  - React Native 앱은 `priceRepository`/`perceivedPriceRepository`를 통해 **오직 백엔드 API**만 호출하고, Gemini나 서울시 공공데이터에 직접 접근하지 않습니다.  
+  - 이를 통해 API 키를 안전하게 관리하고, AI/RAG 로직을 클라이언트 배포와 독립적으로 개선할 수 있습니다.
 
 ## Constitution Check
 
